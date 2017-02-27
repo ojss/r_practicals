@@ -1,0 +1,127 @@
+---
+title: "Multiple Regression"
+author: "Ojas Kishore Shirekar"
+date: "2/11/2017"
+output: html_document
+---
+```{r load_packages, include=FALSE}
+# 1. Load the dataset
+# 2. names in the dataset
+# 3. Check vairables carefully(numeric/categorical)
+# 4. Divide data into training and testing.
+# 5. Do descriptive analysis of plotting correlations of independent variables
+# 6. Run model
+# 7. Interpret model
+# 8. Run regression diagnostics
+# 9. Check multicolinearity
+# 10. Run the model on the test data
+# 11. check the perf on test data
+
+library(caret)
+library(ggplot2)
+library(PerformanceAnalytics)
+library(corrplot)
+```
+
+```{r}
+# Loading data and libs
+Price.House <- read.csv('data/home_data.csv')
+Price.House$date = as.Date(Price.House$date, format='%Y%m%dT%H%M%S')
+head(Price.House)
+```
+
+```{r}
+# Gives the names of the variables.
+names(Price.House)
+# Currently the ID variable is useless, so we remove that collumn and all its rows.
+Price.House <- Price.House[, -1]
+```
+## Some more exploring
+```{r}
+qplot(Price.House$sqft_living, Price.House$price, color=Price.House$price, xlab = 'Square Feet', ylab = 'Price in $')
+```
+
+```{r}
+qplot(Price.House$bedrooms, Price.House$price, color=Price.House$price, xlab = 'Bedrooms', ylab = 'Price in $')
+```
+
+```{r}
+ggplot(Price.House, aes(x=as.factor(zipcode), y=price)) +
+  geom_boxplot(fill="yellow", color="red")
+```
+
+#### Creating a partition of 70/30 train test data
+```{r}
+set.seed(1)
+trainIndex <- createDataPartition(Price.House$price, p = 0.70, list = FALSE)
+Price.HouseTrain <- Price.House[trainIndex, ]
+head(Price.HouseTrain)
+str(Price.HouseTrain)
+length(Price.HouseTrain)
+Price.HouseTest <- Price.House[-trainIndex, ]
+head(Price.HouseTest)
+length(Price.HouseTest)
+```
+
+#### Summaries of train/test
+```{r}
+summary(Price.HouseTrain)
+```
+#### Corr matrix
+```{r}
+library(GGally)
+cor(Price.HouseTrain[, -c(1, 2)])
+my_data <- Price.HouseTrain[, -c(1, 2)]
+# chart.Correlation(my_data, histogram = TRUE, pch=19)
+ggcorr(my_data, nbreaks = 5, geom="circle")
+```
+
+## Running a model
+```{r}
+Simple.Reg.Model <- lm(price ~., data = Price.HouseTrain)
+summary(Simple.Reg.Model)
+names(Simple.Reg.Model)
+confint(Simple.Reg.Model, level = 0.95)
+```
+
+```{r}
+# Goodness of fit
+anova(Simple.Reg.Model)
+```
+
+### Plotting Regression Diagnostics
+```{r}
+par(mfrow=c(2,2))
+plot(Simple.Reg.Model)
+```
+
+```{r}
+test.pred <- predict(Simple.Reg.Model, Price.HouseTest)
+actuals_preds <- data.frame(cbind(actuals=Price.HouseTest$price, predicted=test.pred))
+head(actuals_preds)
+```
+
+```{r}
+ggplot(Price.HouseTrain, aes(x=sqft_living, y=price)) +
+    geom_point(alpha=1, colour='blue') +
+    geom_abline(intercept=Simple.Reg.Model$coefficient[1], slope=Simple.Reg.Model$coefficients[2],colour="red")
+```
+```{r}
+ggplot(Price.HouseTest, aes(x=sqft_living, y=price)) +
+    geom_point(alpha=1, colour='blue') +
+    geom_abline(intercept=Simple.Reg.Model$coefficient[1], slope=Simple.Reg.Model$coefficients[2],colour="red")
+```
+
+## Calc testing accuracy
+```{r}
+test.y <- Price.HouseTest$price
+SS.total <- sum((test.y - mean(test.y)) ^ 2)
+SS.residual <- sum((test.y - test.pred) ^ 2)
+SS.regression <- sum((test.pred - mean(test.y)) ^ 2)
+SS.total - (SS.regression + SS.residual)
+
+SS.regression/SS.total * 100
+
+R_SquareTrain <- summary(Simple.Reg.Model)$r.squared * 100
+R_SquareTrain
+```

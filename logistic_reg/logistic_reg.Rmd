@@ -1,0 +1,58 @@
+---
+title: "logistic_reg"
+author: "Ojas Kishore Shirekar"
+date: "2/21/2017"
+output: html_document
+---
+
+```{r load_packages, include=FALSE}
+library(caret)
+library(ggplot2)
+```
+
+
+```{r}
+churn <- read.csv('../data/churn_Data.csv')
+churn <- churn[, -4]
+```
+
+```{r}
+head(churn)
+str(churn)
+summary(churn)
+barplot(table(churn$Churn.))
+ggplot(data=churn, aes(x=churn$Churn., y=nrow(churn))) + geom_bar(stat="identity")
+```
+```{r}
+apply(churn, 2, function(x)sum(is.na(x)))
+```
+
+```{r}
+trainIndex <- createDataPartition(churn$Churn. , p = 0.7, list = FALSE, times = 1)
+trainSet <- churn[trainIndex, ]
+testSet <- churn[-trainIndex,]
+```
+
+```{r}
+fit <- glm(Churn.~., data = trainSet, family='binomial')
+# fit <- train(Churn.~.,  data=trainSet, method="glm", family="binomial")
+```
+
+```{r}
+summary(fit)
+```
+
+```{r}
+pred <- predict(fit, testSet, type="response")
+clss <- pred > 0.5
+tb = table(testSet$Churn., clss)
+head(tb)
+
+churn.mod <- ifelse(testSet$Churn. == TRUE,1 , 0)
+pred <- ifelse(pred >0.5, 1, 0)
+pred_class <- churn.mod
+pred_class[pred <= 0.5] <- 1-pred_class[pred <= 0.5]
+ctb = table(churn.mod, pred_class)
+ctb
+confusionMatrix(pred, pred_class)
+```
